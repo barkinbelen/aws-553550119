@@ -1,3 +1,16 @@
+# VPC module to create required VPC resources
+module "vpc" {
+  source                  = "../../../terraform-modules/vpc"
+  project_name            = var.project_name
+  env                     = var.env
+  region                  = var.region
+  cidr_block              = var.cidr_block
+  subnet_count            = var.subnet_count
+  public_subnet_suffixes  = var.public_subnet_suffixes
+  private_subnet_suffixes = var.private_subnet_suffixes
+  extra_tags              = var.extra_tags
+}
+
 # S3 Bucket with files
 resource "aws_s3_bucket" "web_content" {
   bucket = "customer-prod-web-content-553550119"
