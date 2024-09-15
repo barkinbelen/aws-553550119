@@ -9,12 +9,6 @@ resource "aws_security_group" "web_server_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
   egress {
     from_port   = 0
     to_port     = 0
@@ -26,6 +20,8 @@ resource "aws_security_group" "web_server_sg" {
     var.extra_tags
   )
 }
+
+### IAM Roles and Policies ###
 
 # Web Server IAM Role
 resource "aws_iam_role" "web_server_iam_role" {
@@ -86,106 +82,6 @@ resource "aws_iam_instance_profile" "web_server_ec2_instance_profile" {
   tags = var.extra_tags
 }
 
-# Web Server EC2 Instance
-resource "aws_instance" "web_server" {
-  ami                    = var.ami_id
-  instance_type          = var.instance_type
-  subnet_id              = var.subnet_id
-  vpc_security_group_ids = [aws_security_group.web_server_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.web_server_ec2_instance_profile.name
-
-  user_data = <<-EOF
-              #!/bin/bash
-              # Update the system and install Nginx
-              yum update -y
-              yum install -y nginx
-
-              # Create directory for your website
-              mkdir -p /var/www/html
-
-              # Download the index.html from S3 bucket
-              aws s3 sync s3://${var.web_content_s3_bucket.bucket}/ /var/www/html/
-
-              # Overwrite the Nginx configuration with your desired setup
-              cat <<EOT > /etc/nginx/nginx.conf
-              user nginx;
-              worker_processes auto;
-              error_log /var/log/nginx/error.log notice;
-              pid /run/nginx.pid;
-
-              events {
-                  worker_connections 1024;
-              }
-
-              http {
-                  log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
-                                    '\$status \$body_bytes_sent "\$http_referer" '
-                                    '"\$http_user_agent" "\$http_x_forwarded_for"';
-                  access_log  /var/log/nginx/access.log  main;
-
-                  sendfile        on;
-                  tcp_nopush      on;
-                  keepalive_timeout 65;
-                  types_hash_max_size 2048;
-
-                  include       /etc/nginx/mime.types;
-                  default_type  application/octet-stream;
-
-                  include /etc/nginx/conf.d/*.conf;
-
-                  server {
-                      listen       80 default_server;
-                      listen       [::]:80 default_server;
-                      server_name  _;
-                      root         /var/www/html;
-                      index        index.html;
-
-                      location / {
-                          try_files \$uri \$uri/ =404;
-                      }
-
-                      error_page 404 /404.html;
-                      error_page 500 502 503 504 /50x.html;
-                  }
-              }
-              EOT
-              yum install -y amazon-cloudwatch-agent
-
-              # Create CloudWatch Agent configuration file
-              cat <<EOT > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-              {
-                "logs": {
-                  "logs_collected": {
-                    "files": {
-                      "collect_list": [
-                        {
-                          "file_path": "/var/log/nginx/access.log",
-                          "log_group_name": "${aws_cloudwatch_log_group.nginx_access_logs.name}",
-                          "log_stream_name": "$(date +'%Y-%m-%d')/{instance_id}",
-                          "timezone": "UTC"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-              EOT
-
-              # Configure and start the CloudWatch Agent
-              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-                -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
-
-              # Start and enable Nginx
-              systemctl restart nginx
-              systemctl enable nginx
-              EOF
-
-  tags = merge(
-    { Name = "${var.project_name}-${var.env}-${var.instance_name}" },
-    var.extra_tags
-  )
-}
-
 # CloudWatch Log Group and IAM Policy for Nginx Access Logs
 resource "aws_cloudwatch_log_group" "nginx_access_logs" {
   name = "${var.project_name}-${var.env}-Web-Server-Nginx-Access-Logs"
@@ -220,4 +116,133 @@ resource "aws_iam_policy" "cloudwatch_logs_policy" {
 resource "aws_iam_role_policy_attachment" "cloudwatch_logs_policy_attachment" {
   policy_arn = aws_iam_policy.cloudwatch_logs_policy.arn
   role       = aws_iam_role.web_server_iam_role.name
+}
+
+### AUTO SCALING GROUP ###
+
+# Launch template for the EC2 instances
+resource "aws_launch_template" "web_server_launch_template" {
+  name_prefix            = "${var.project_name}-${var.env}-"
+  image_id               = var.ami_id
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.web_server_sg.id]
+  iam_instance_profile {
+    name = aws_iam_instance_profile.web_server_ec2_instance_profile.name
+  }
+
+  # User data script to configure the instance
+  user_data = base64encode(templatefile("${path.module}/user_data.tpl", {
+    s3_bucket_name       = var.web_content_s3_bucket.bucket,
+    cloudwatch_log_group = aws_cloudwatch_log_group.nginx_access_logs.name
+  }))
+
+
+  # Tags for the EC2 instances launched with this template
+  tags = merge(
+    { Name = "${var.project_name}-${var.env}-Launch-Template" },
+    var.extra_tags
+  )
+}
+
+# Auto Scaling Group (ASG) to manage EC2 instances
+resource "aws_autoscaling_group" "web_server_asg" {
+  launch_template {
+    id      = aws_launch_template.web_server_launch_template.id
+    version = "$Latest"
+  }
+  name                      = "${var.project_name}-${var.env}-Web-Server-ASG"
+  vpc_zone_identifier       = [var.subnet_id]
+  min_size                  = 1
+  max_size                  = 3
+  desired_capacity          = 1
+  health_check_type         = "EC2"
+  health_check_grace_period = 300
+
+  # Tags for instances in the Auto Scaling Group
+  tag {
+    key                 = "Name"
+    value               = "${var.project_name}-${var.env}-Web-Server-ASG"
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Project"
+    value               = var.project_name
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Environment"
+    value               = var.env
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Owner"
+    value               = "DevOps Admin"
+    propagate_at_launch = true
+  }
+}
+
+### SCALING POLICIES ###
+
+# Policy to scale up when CPU usage increases
+resource "aws_autoscaling_policy" "web_server_scale_up" {
+  name                   = "${var.project_name}-${var.env}-Scale-Up"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 60
+  autoscaling_group_name = aws_autoscaling_group.web_server_asg.name
+}
+
+# Policy to scale down when CPU usage decreases
+resource "aws_autoscaling_policy" "web_server_scale_down" {
+  name                   = "${var.project_name}-${var.env}-Scale-Down"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 60
+  autoscaling_group_name = aws_autoscaling_group.web_server_asg.name
+}
+
+### CLOUDWATCH METRIC ALARMS ###
+
+# CloudWatch alarm to trigger scale-up when CPU is high
+resource "aws_cloudwatch_metric_alarm" "web_server_cpu_high" {
+  alarm_name          = "${var.project_name}-${var.env}-CPU-High"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "80"
+  alarm_actions       = [aws_autoscaling_policy.web_server_scale_up.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.web_server_asg.name
+  }
+
+  tags = merge(
+    { Name = "${var.project_name}-${var.env}-CPU-High" },
+    var.extra_tags
+  )
+}
+
+# CloudWatch alarm to trigger scale-down when CPU is low
+resource "aws_cloudwatch_metric_alarm" "web_server_cpu_low" {
+  alarm_name          = "${var.project_name}-${var.env}-CPU-Low"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "20"
+  alarm_actions       = [aws_autoscaling_policy.web_server_scale_down.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.web_server_asg.name
+  }
+
+  tags = merge(
+    { Name = "${var.project_name}-${var.env}-CPU-Low" },
+    var.extra_tags
+  )
 }
