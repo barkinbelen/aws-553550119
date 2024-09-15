@@ -1,7 +1,42 @@
+locals {
+  common_resource_name = "${var.project_name}-${var.env}-${var.instance_name}"
+}
+
+#######################
+### SECURITY GROUPS ###
+#######################
+
 # Create Security Group for Web Server
 resource "aws_security_group" "web_server_sg" {
   vpc_id      = var.vpc_id
-  description = "Web Server Security Group"
+  description = "${var.instance_name} Security Group"
+
+  # Allow inbound traffic from ALB security group
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.web_server_alb_sg.id]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(
+    { Name = "${local.common_resource_name}-Instance-SG" },
+    var.extra_tags
+  )
+}
+
+# Create Security Group for ALB
+resource "aws_security_group" "web_server_alb_sg" {
+  vpc_id      = var.vpc_id
+  description = "Security Group for ALB"
 
   ingress {
     from_port   = 80
@@ -9,23 +44,25 @@ resource "aws_security_group" "web_server_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   tags = merge(
-    { Name = "${var.project_name}-${var.env}-Web-Server-SG" },
+    { Name = "${local.common_resource_name}-ALB-SG" },
     var.extra_tags
   )
 }
 
-### IAM Roles and Policies ###
+### IAM ROLES AND POLICIES ###
 
 # Web Server IAM Role
 resource "aws_iam_role" "web_server_iam_role" {
-  name = "${var.project_name}-${var.env}-Web-Server-IAM-Role"
+  name = "${local.common_resource_name}-IAM-Role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -44,7 +81,7 @@ resource "aws_iam_role" "web_server_iam_role" {
 
 # S3 Access IAM Policy
 resource "aws_iam_policy" "web_server_s3_access_policy" {
-  name        = "${var.project_name}-${var.env}-Web-Server-S3-Access-Policy"
+  name        = "${local.common_resource_name}-S3-Access-Policy"
   description = "Policy to allow EC2 instances to access specific S3 bucket"
 
   policy = jsonencode({
@@ -77,19 +114,19 @@ resource "aws_iam_role_policy_attachment" "s3_access_role_policy_attachment" {
 
 # Web Server IAM Instance Profile
 resource "aws_iam_instance_profile" "web_server_ec2_instance_profile" {
-  name = "${var.project_name}-${var.env}-Web-Server-Instance-Profile"
+  name = "${local.common_resource_name}-Instance-Profile"
   role = aws_iam_role.web_server_iam_role.name
   tags = var.extra_tags
 }
 
 # CloudWatch Log Group and IAM Policy for Nginx Access Logs
 resource "aws_cloudwatch_log_group" "nginx_access_logs" {
-  name = "${var.project_name}-${var.env}-Web-Server-Nginx-Access-Logs"
+  name = "${local.common_resource_name}-Nginx-Access-Logs"
   tags = var.extra_tags
 }
 
 resource "aws_iam_policy" "cloudwatch_logs_policy" {
-  name        = "${var.project_name}-${var.env}-Web-Server-Cloudwatch-Logs-Policy"
+  name        = "${local.common_resource_name}-Cloudwatch-Logs-Policy"
   description = "Policy to allow EC2 instances to send logs to CloudWatch"
 
   policy = jsonencode({
@@ -118,7 +155,68 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_logs_policy_attachment" {
   role       = aws_iam_role.web_server_iam_role.name
 }
 
+#####################
+### LOAD BALANCER ###
+#####################
+
+# Create the Application Load Balancer
+resource "aws_lb" "web_server_alb" {
+  name               = "${local.common_resource_name}-ALB"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.web_server_alb_sg.id]
+  subnets            = var.public_subnet_ids
+
+  enable_deletion_protection = false
+
+  tags = merge(
+    { Name = "${local.common_resource_name}-ALB" },
+    var.extra_tags
+  )
+}
+
+# Create the ALB target group
+resource "aws_lb_target_group" "web_server_tg" {
+  name     = "${local.common_resource_name}-TG-80"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = var.vpc_id
+
+  health_check {
+    path                = "/"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 5
+    unhealthy_threshold = 2
+    matcher             = "200"
+  }
+
+  tags = merge(
+    { Name = "${local.common_resource_name}-TG-80" },
+    var.extra_tags
+  )
+}
+
+# Create the ALB listener
+resource "aws_lb_listener" "web_server_listener" {
+  load_balancer_arn = aws_lb.web_server_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web_server_tg.arn
+  }
+
+  tags = merge(
+    { Name = "${local.common_resource_name}-Listener-80" },
+    var.extra_tags
+  )
+}
+
+##########################
 ### AUTO SCALING GROUP ###
+##########################
 
 # Launch template for the EC2 instances
 resource "aws_launch_template" "web_server_launch_template" {
@@ -151,7 +249,8 @@ resource "aws_autoscaling_group" "web_server_asg" {
     version = "$Latest"
   }
   name                      = "${var.project_name}-${var.env}-Web-Server-ASG"
-  vpc_zone_identifier       = [var.subnet_id]
+  vpc_zone_identifier       = var.private_subnet_ids
+  target_group_arns         = [aws_lb_target_group.web_server_tg.arn]
   min_size                  = 1
   max_size                  = 3
   desired_capacity          = 1
@@ -201,7 +300,9 @@ resource "aws_autoscaling_policy" "web_server_scale_down" {
   autoscaling_group_name = aws_autoscaling_group.web_server_asg.name
 }
 
+################################
 ### CLOUDWATCH METRIC ALARMS ###
+################################
 
 # CloudWatch alarm to trigger scale-up when CPU is high
 resource "aws_cloudwatch_metric_alarm" "web_server_cpu_high" {
