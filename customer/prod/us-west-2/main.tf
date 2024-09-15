@@ -19,7 +19,8 @@ module "ec2" {
   instance_name         = var.instance_name
   instance_type         = var.instance_type
   ami_id                = var.ami_id
-  subnet_id             = module.vpc.public_subnets[0].id
+  public_subnet_ids     = module.vpc.public_subnets[*].id
+  private_subnet_ids    = module.vpc.private_subnets[*].id
   web_content_s3_bucket = aws_s3_bucket.web_content
   extra_tags            = var.extra_tags
 }

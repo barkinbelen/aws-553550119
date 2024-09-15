@@ -31,7 +31,7 @@ variable "cidr_block" {
 variable "subnet_count" {
   type        = number
   description = "Number of subnets to be created"
-  default     = 1
+  default     = 2
 }
 
 variable "public_subnet_suffixes" {

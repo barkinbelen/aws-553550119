@@ -18,9 +18,14 @@ variable "instance_type" {
   type        = string
 }
 
-variable "subnet_id" {
-  description = "Subnet ID for instance to be created in"
-  type        = string
+variable "public_subnet_ids" {
+  description = "Public subnet IDs"
+  type        = list(string)
+}
+
+variable "private_subnet_ids" {
+  description = "Private subnet IDs"
+  type        = list(string)
 }
 
 variable "instance_name" {
