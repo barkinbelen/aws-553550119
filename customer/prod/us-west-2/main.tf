@@ -11,13 +11,26 @@ module "vpc" {
   extra_tags              = var.extra_tags
 }
 
+module "ec2" {
+  source                = "../../../terraform-modules/ec2"
+  project_name          = var.project_name
+  env                   = var.env
+  vpc_id                = module.vpc.vpc_id
+  instance_name         = var.instance_name
+  instance_type         = var.instance_type
+  ami_id                = var.ami_id
+  subnet_id             = module.vpc.public_subnets[0].id
+  web_content_s3_bucket = aws_s3_bucket.web_content
+  extra_tags            = var.extra_tags
+}
+
 # S3 Bucket with files
 resource "aws_s3_bucket" "web_content" {
   bucket = "customer-prod-web-content-553550119"
-
-  tags = {
-    Name = "${var.project_name}-${var.env}-Web-Content-Bucket"
-  }
+  tags = merge(
+    { Name = "${var.project_name}-${var.env}-Web-Content-Bucket" },
+    var.extra_tags
+  )
 }
 
 resource "aws_s3_object" "example_file" {

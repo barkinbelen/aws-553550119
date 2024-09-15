@@ -33,6 +33,7 @@ variable "subnet_count" {
   description = "Number of subnets to be created"
   default     = 1
 }
+
 variable "public_subnet_suffixes" {
   type        = list(string)
   description = "Public Subnet CIDR values"
@@ -54,4 +55,22 @@ variable "extra_tags" {
     Owner       = "Devops Admin"
     Install     = "Terraform"
   }
+}
+
+variable "instance_name" {
+  description = "Value of the Name tag for the EC2 instance"
+  type        = string
+  default     = "Web-Server"
+}
+
+variable "instance_type" {
+  description = "Value of instance type for the EC2 instance"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "ami_id" {
+  description = "Value of AMI ID for the EC2 instance"
+  type        = string
+  default     = "ami-0bfddf4206f1fa7b9"
 }
