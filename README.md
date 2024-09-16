@@ -1,13 +1,13 @@
 # Terraform AWS Infrastructure Setup
 
-This repository contains Terraform code to deploy infrastructure on AWS, including a VPC, Auto Scaling Group, an Application Load Balancer (ALB), CloudWatch Alarms, SNS Topic and an S3 bucket for web content.
+This repository contains Terraform code to deploy infrastructure on AWS, including a VPC, Auto Scaling Group (ASG), CloudWatch Alarms, SNS Topic, and an S3 bucket for web content hosting via Nginx.
 
 # Repository Structure
 
 The repository is structured with two main modules:
 
 - VPC Module: This module provisions the required VPC resources, such as subnets, internet gateways, and NAT gateways.
-- EC2 Module: This module handles the creation of Auto Scaling Group (ASG), CloudWatch Logs and Alarms, Application Load Balancer (ALB), IAM roles, Security Groups and SNS Topic.
+- ASG Module: This module handles the creation of an Auto Scaling Group (ASG), CloudWatch Logs and Alarms, IAM roles, Security Groups, and an optional Application Load Balancer (ALB).
 
 # How to Use
 
@@ -39,6 +39,28 @@ terraform apply
 terraform destroy
 ```
 
+## Differences Between ASG with and without ALB
+
+- ASG without an ALB
+
+  - The ASG is created in a public subnet, allowing instances to have public IP addresses.
+  - The ASG's security group is open to the entire internet on port 80.
+
+- ASG with an ALB
+
+  - An ALB is created in public subnets with a security group that allows internet access on port 80.
+  - The ASG is deployed in a private subnet.
+  - The ASG's security group is only open to the ALB's security group on port 80.
+
+## Changing ALB Creation Option
+
+To switch from an ASG module with an ALB to one without it, you'll need to destroy the current module and apply it agaion.
+
+```
+terraform destroy -target module.asg
+terraform apply
+```
+
 ## Modules
 
 ### VPC Module
@@ -50,12 +72,12 @@ The VPC module creates the following resources:
 - An Internet Gateway (IGW) for the public subnets
 - NAT Gateways for the private subnets
 
-### EC2 Module
+### ASG Module
 
-The EC2 module creates:
+The ASG module creates:
 
 - Auto Scaling Group (ASG) for EC2 instances
-- Application Load Balancer (ALB)
+- Application Load Balancer (Optional)
 - IAM roles and policies for the instances
 - Security Groups to control access
 - CloudWatch Logs and Alarms for monitoring
@@ -70,29 +92,24 @@ An S3 bucket is created to store web content. By default, the index.html file is
 
 ## Variables
 
-| Variable                           | Description                                       | Example                               |
-| ---------------------------------- | ------------------------------------------------- | ------------------------------------- |
-| `project_name`                     | Project name for tagging resources                | `Customer`                            |
-| `env`                              | Environment name (Prod, Dev, etc.)                | `Prod`                                |
-| `region`                           | AWS Region to deploy the resources                | `us-west-2`                           |
-| `cidr_block`                       | CIDR range of the VPC                             | `10.0.0.0/16`                         |
-| `subnet_count`                     | Number of public and private subnets              | `2`                                   |
-| `public_subnet_suffixes`           | CIDR suffixes for public subnets                  | `["1.0/24", "2.0/24"]`                |
-| `private_subnet_suffixes`          | CIDR suffixes for private subnets                 | `["4.0/24", "5.0/24"]`                |
-| `instance_name`                    | Name tag for the EC2 instances                    | `Web-Server`                          |
-| `instance_type`                    | EC2 instance type                                 | `t2.micro`                            |
-| `ami_id`                           | AMI ID for the EC2 instances                      | `ami-0bfddf4206f1fa7b9`               |
-| `extra_tags`                       | Additional tags for resources                     | See `variables.tf`                    |
-| `aws_sns_topic_subscription_email` | Email address of the AWS SNS topic subscription   | `devops-admin@example.com`            |
-| `web_content_bucket_name`          | Name of the S3 bucket where web content is stored | `customer-prod-web-content-553550119` |
+| Variable                           | Description                                                                   | Example                               |
+| ---------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------- |
+| `project_name`                     | Project name for tagging resources                                            | `Customer`                            |
+| `env`                              | Environment name (Prod, Dev, etc.)                                            | `Prod`                                |
+| `region`                           | AWS Region to deploy the resources                                            | `us-west-2`                           |
+| `cidr_block`                       | CIDR range of the VPC                                                         | `10.0.0.0/16`                         |
+| `subnet_count`                     | Number of public and private subnets                                          | `2`                                   |
+| `public_subnet_suffixes`           | CIDR suffixes for public subnets                                              | `["1.0/24", "2.0/24"]`                |
+| `private_subnet_suffixes`          | CIDR suffixes for private subnets                                             | `["4.0/24", "5.0/24"]`                |
+| `instance_name`                    | Name tag for the EC2 instances                                                | `Web-Server`                          |
+| `instance_type`                    | EC2 instance type                                                             | `t2.micro`                            |
+| `ami_id`                           | AMI ID for the EC2 instances                                                  | `ami-0bfddf4206f1fa7b9`               |
+| `extra_tags`                       | Additional tags for resources                                                 | See `variables.tf`                    |
+| `aws_sns_topic_subscription_email` | Email address of the AWS SNS topic subscription                               | `devops-admin@example.com`            |
+| `web_content_bucket_name`          | Name of the S3 bucket where web content is stored                             | `customer-prod-web-content-553550119` |
+| `create_load_balancer`             | Boolean to determine if load balancer and related resources should be created | `true`                                |
 
 ## Module Outputs
-
-### Root Module
-
-| Output              | Description       |
-| ------------------- | ----------------- |
-| `load_balancer_url` | Load Balancer URL |
 
 ### VPC Module
 
@@ -103,9 +120,3 @@ An S3 bucket is created to store web content. By default, the index.html file is
 | `private_subnets`         | Attributes of the private subnets |
 | `public_route_table_ids`  | IDs of the public route tables    |
 | `private_route_table_ids` | IDs of the private route tables   |
-
-### EC2 Module
-
-| Output              | Description       |
-| ------------------- | ----------------- |
-| `load_balancer_url` | Load Balancer URL |
