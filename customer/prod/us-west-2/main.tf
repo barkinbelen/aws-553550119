@@ -11,6 +11,7 @@ module "vpc" {
   extra_tags              = var.extra_tags
 }
 
+# EC2 module to create ASG, ALB, IAM roles, Security Groups, Cloudwatch Logs and Alarms
 module "ec2" {
   source                = "../../../terraform-modules/ec2"
   project_name          = var.project_name
@@ -23,11 +24,12 @@ module "ec2" {
   private_subnet_ids    = module.vpc.private_subnets[*].id
   web_content_s3_bucket = aws_s3_bucket.web_content
   extra_tags            = var.extra_tags
+  notification_email    = var.aws_sns_topic_subscription_email
 }
 
 # S3 Bucket with files
 resource "aws_s3_bucket" "web_content" {
-  bucket = "customer-prod-web-content-553550119"
+  bucket = var.web_content_bucket_name
   tags = merge(
     { Name = "${var.project_name}-${var.env}-Web-Content-Bucket" },
     var.extra_tags
