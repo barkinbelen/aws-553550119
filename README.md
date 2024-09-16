@@ -62,13 +62,13 @@ The EC2 module creates:
 - SNS Topic
 - SNS Topic subscription
 
-### Resources
+## Resources
 
-## S3 Bucket
+### S3 Bucket
 
 An S3 bucket is created to store web content. By default, the index.html file is uploaded to the bucket.
 
-### Variables
+## Variables
 
 | Variable                           | Description                                       | Example                               |
 | ---------------------------------- | ------------------------------------------------- | ------------------------------------- |
@@ -86,15 +86,15 @@ An S3 bucket is created to store web content. By default, the index.html file is
 | `aws_sns_topic_subscription_email` | Email address of the AWS SNS topic subscription   | `devops-admin@example.com`            |
 | `web_content_bucket_name`          | Name of the S3 bucket where web content is stored | `customer-prod-web-content-553550119` |
 
-### Module Outputs
+## Module Outputs
 
-## Root Module
+### Root Module
 
 | Output              | Description       |
 | ------------------- | ----------------- |
 | `load_balancer_url` | Load Balancer URL |
 
-## VPC Module
+### VPC Module
 
 | Output                    | Description                     |
 | ------------------------- | ------------------------------- |
@@ -104,7 +104,7 @@ An S3 bucket is created to store web content. By default, the index.html file is
 | `public_route_table_ids`  | IDs of the public route tables  |
 | `private_route_table_ids` | IDs of the private route tables |
 
-## EC2 Module
+### EC2 Module
 
 | Output              | Description       |
 | ------------------- | ----------------- |
