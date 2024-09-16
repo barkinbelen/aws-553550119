@@ -51,3 +51,8 @@ variable "extra_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "notification_email" {
+  description = "Notification email address"
+  type        = string
+}

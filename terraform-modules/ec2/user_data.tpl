@@ -1,12 +1,12 @@
 #!/bin/bash
-# Update the system and install Nginx
+# Update the system, install Nginx and CloudWatch Agent
 yum update -y
-yum install -y nginx
+yum install -y nginx amazon-cloudwatch-agent
 
 # Create directory for your website
 mkdir -p /var/www/html
 
-# Download the index.html from S3 bucket
+# Download the website files from S3 bucket
 aws s3 sync s3://${s3_bucket_name}/ /var/www/html/
 
 # Overwrite the Nginx configuration with your desired setup
@@ -46,19 +46,49 @@ http {
         location / {
             try_files \$uri \$uri/ =404;
         }
-
-        error_page 404 /404.html;
-        error_page 500 502 503 504 /50x.html;
     }
 }
 EOT
 
-# Install and configure the CloudWatch agent for log monitoring
-yum install -y amazon-cloudwatch-agent
-
-# Create CloudWatch Agent configuration file
+# Create CloudWatch Agent configuration file for Nginx logs and EC2 metrics
 cat <<EOT > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 {
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "cwagent"
+  },
+  "metrics": {
+    "aggregation_dimensions": [
+      [
+        "AutoScalingGroupName"
+      ]
+    ],
+    "append_dimensions": {
+      "AutoScalingGroupName": "XXX{aws:AutoScalingGroupName}"
+    },
+    "metrics_collected": {
+      "disk": {
+        "measurement": [
+          "used_percent"
+        ],
+        "metrics_collection_interval": 60,
+        "resources": [
+          "*"
+        ]
+      },
+      "mem": {
+        "measurement": [
+          "mem_used_percent"
+        ],
+        "metrics_collection_interval": 60
+      },
+      "statsd": {
+        "metrics_aggregation_interval": 60,
+        "metrics_collection_interval": 10,
+        "service_address": ":8125"
+      }
+    }
+  },
   "logs": {
     "logs_collected": {
       "files": {
@@ -66,7 +96,13 @@ cat <<EOT > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
           {
             "file_path": "/var/log/nginx/access.log",
             "log_group_name": "${cloudwatch_log_group}",
-            "log_stream_name": "$(date +'%Y-%m-%d-%H-%M')/{instance_id}",  # Logs in 30-minute intervals
+            "log_stream_name": "$(date +'%Y-%m-%d-%H')/nginx-access-{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/nginx/error.log",
+            "log_group_name": "${cloudwatch_log_group}",
+            "log_stream_name": "$(date +'%Y-%m-%d-%H')/nginx-error-{instance_id}",
             "timezone": "UTC"
           }
         ]
@@ -75,6 +111,8 @@ cat <<EOT > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
   }
 }
 EOT
+# Replace XXX with $ This is done because while sending the script terraform is trying give a value to $${aws:AutoScalingGroupName} and this is causing problems.
+sed -i 's/XXX/\$/g' /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 
 # Start CloudWatch Agent
 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \

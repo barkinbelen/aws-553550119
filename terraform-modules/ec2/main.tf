@@ -58,7 +58,9 @@ resource "aws_security_group" "web_server_alb_sg" {
   )
 }
 
+##############################
 ### IAM ROLES AND POLICIES ###
+##############################
 
 # Web Server IAM Role
 resource "aws_iam_role" "web_server_iam_role" {
@@ -127,7 +129,7 @@ resource "aws_cloudwatch_log_group" "nginx_access_logs" {
 
 resource "aws_iam_policy" "cloudwatch_logs_policy" {
   name        = "${local.common_resource_name}-Cloudwatch-Logs-Policy"
-  description = "Policy to allow EC2 instances to send logs to CloudWatch"
+  description = "Policy to allow EC2 instances to send logs and metrics to CloudWatch"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -143,7 +145,18 @@ resource "aws_iam_policy" "cloudwatch_logs_policy" {
           "${aws_cloudwatch_log_group.nginx_access_logs.arn}",
           "${aws_cloudwatch_log_group.nginx_access_logs.arn}:*"
         ]
-
+      },
+      {
+        Effect   = "Allow",
+        Action   = "cloudwatch:PutMetricData",
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeTags"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -252,7 +265,7 @@ resource "aws_autoscaling_group" "web_server_asg" {
   vpc_zone_identifier       = var.private_subnet_ids
   target_group_arns         = [aws_lb_target_group.web_server_tg.arn]
   min_size                  = 1
-  max_size                  = 3
+  max_size                  = 4
   desired_capacity          = 1
   health_check_type         = "EC2"
   health_check_grace_period = 300
@@ -280,7 +293,9 @@ resource "aws_autoscaling_group" "web_server_asg" {
   }
 }
 
+########################
 ### SCALING POLICIES ###
+########################
 
 # Policy to scale up when CPU usage increases
 resource "aws_autoscaling_policy" "web_server_scale_up" {
@@ -306,14 +321,14 @@ resource "aws_autoscaling_policy" "web_server_scale_down" {
 
 # CloudWatch alarm to trigger scale-up when CPU is high
 resource "aws_cloudwatch_metric_alarm" "web_server_cpu_high" {
-  alarm_name          = "${var.project_name}-${var.env}-CPU-High"
+  alarm_name          = "${var.project_name}-${var.env}-CPU-High-Scale-Up"
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  evaluation_periods  = "2"
+  evaluation_periods  = "5"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
   period              = "60"
   statistic           = "Average"
-  threshold           = "80"
+  threshold           = "60"
   alarm_actions       = [aws_autoscaling_policy.web_server_scale_up.arn]
 
   dimensions = {
@@ -328,9 +343,9 @@ resource "aws_cloudwatch_metric_alarm" "web_server_cpu_high" {
 
 # CloudWatch alarm to trigger scale-down when CPU is low
 resource "aws_cloudwatch_metric_alarm" "web_server_cpu_low" {
-  alarm_name          = "${var.project_name}-${var.env}-CPU-Low"
+  alarm_name          = "${var.project_name}-${var.env}-CPU-Low-Scale-Down"
   comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods  = "2"
+  evaluation_periods  = "5"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
   period              = "60"
@@ -346,4 +361,70 @@ resource "aws_cloudwatch_metric_alarm" "web_server_cpu_low" {
     { Name = "${var.project_name}-${var.env}-CPU-Low" },
     var.extra_tags
   )
+}
+
+# CPU Utilization Alarm
+resource "aws_cloudwatch_metric_alarm" "web_server_cpu_high_alarm" {
+  alarm_name          = "${local.common_resource_name}-CPU-High"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "5"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "80"
+  alarm_actions       = [aws_sns_topic.alarm_notifications.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.web_server_asg.name
+  }
+}
+
+# Memory Utilization Alarm
+resource "aws_cloudwatch_metric_alarm" "web_server_memory_high_alarm" {
+  alarm_name          = "${local.common_resource_name}-Memory-High"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 2
+  metric_name         = "mem_used_percent"
+  namespace           = "CWAgent"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 80
+  alarm_actions       = [aws_sns_topic.alarm_notifications.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.web_server_asg.name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "web_server_disk_space_high_alarm" {
+  alarm_name          = "${local.common_resource_name}-Disk-Space-High"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 2
+  metric_name         = "disk_used_percent"
+  namespace           = "CWAgent"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 80
+  alarm_actions       = [aws_sns_topic.alarm_notifications.arn]
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.web_server_asg.name
+  }
+}
+
+##################################
+### SNS TOPIC AND SUBSCRIPTION ###
+##################################
+
+# SNS topic for alarm notifications
+resource "aws_sns_topic" "alarm_notifications" {
+  name = "${local.common_resource_name}-alarm-notifications"
+}
+
+# Subscribe your email to the SNS topic
+resource "aws_sns_topic_subscription" "email_subscription" {
+  topic_arn = aws_sns_topic.alarm_notifications.arn
+  protocol  = "email"
+  endpoint  = var.notification_email # Specify the email where you want to receive notifications
 }
