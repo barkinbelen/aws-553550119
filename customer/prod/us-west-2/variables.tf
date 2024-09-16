@@ -78,12 +78,17 @@ variable "ami_id" {
 variable "aws_sns_topic_subscription_email" {
   description = "Email address of the AWS SNS topic subscription"
   type        = string
-  default     = "barkinbln@gmail.com"
-  # default     = "devops-admin@example.com"
+  default     = "devops-admin@example.com"
 }
 
 variable "web_content_bucket_name" {
   description = "Name of the S3 bucket where web content is stored"
   type        = string
   default     = "customer-prod-web-content-553550119"
+}
+
+variable "create_load_balancer" {
+  description = "Boolean to determine if load balancer and related resources should be created"
+  type        = bool
+  default     = true
 }

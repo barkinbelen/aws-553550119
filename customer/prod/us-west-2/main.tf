@@ -11,9 +11,9 @@ module "vpc" {
   extra_tags              = var.extra_tags
 }
 
-# EC2 module to create ASG, ALB, IAM roles, Security Groups, Cloudwatch Logs and Alarms
-module "ec2" {
-  source                = "../../../terraform-modules/ec2"
+#ASG module to create ASG, ALB, IAM roles, Security Groups, Cloudwatch Logs and Alarms
+module "asg" {
+  source                = "../../../terraform-modules/asg"
   project_name          = var.project_name
   env                   = var.env
   vpc_id                = module.vpc.vpc_id
@@ -25,6 +25,8 @@ module "ec2" {
   web_content_s3_bucket = aws_s3_bucket.web_content
   extra_tags            = var.extra_tags
   notification_email    = var.aws_sns_topic_subscription_email
+  depends_on            = [module.vpc]
+  create_load_balancer  = var.create_load_balancer
 }
 
 # S3 Bucket with files
