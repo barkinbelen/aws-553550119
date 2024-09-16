@@ -1,13 +1,13 @@
 # Terraform AWS Infrastructure Setup
 
-This repository contains Terraform code to deploy infrastructure on AWS, including a VPC, EC2 instances with Auto Scaling, an Application Load Balancer (ALB), and an S3 bucket for web content.
+This repository contains Terraform code to deploy infrastructure on AWS, including a VPC, Auto Scaling Group, an Application Load Balancer (ALB), CloudWatch Alarms, SNS Topic and an S3 bucket for web content.
 
 # Repository Structure
 
 The repository is structured with two main modules:
 
 - VPC Module: This module provisions the required VPC resources, such as subnets, internet gateways, and NAT gateways.
-- EC2 Module: This module handles the creation of EC2 instances, Auto Scaling Groups (ASG), Application Load Balancers (ALB), IAM roles, Security Groups, CloudWatch Logs, and Alarms.
+- EC2 Module: This module handles the creation of Auto Scaling Group (ASG), CloudWatch Logs and Alarms, Application Load Balancer (ALB), IAM roles, Security Groups and SNS Topic.
 
 # How to Use
 
@@ -62,7 +62,10 @@ The EC2 module creates:
 - SNS Topic
 - SNS Topic subscription
 
-S3 Bucket
+### Resources
+
+## S3 Bucket
+
 An S3 bucket is created to store web content. By default, the index.html file is uploaded to the bucket.
 
 ### Variables
