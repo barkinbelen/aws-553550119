@@ -39,7 +39,7 @@ terraform apply
 terraform destroy
 ```
 
-## Differences Between ASG with and without ALB
+##  Differences Between ASG with and without ALB
 
 - ASG without an ALB
 
