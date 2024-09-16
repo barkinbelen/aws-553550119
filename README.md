@@ -96,13 +96,13 @@ An S3 bucket is created to store web content. By default, the index.html file is
 
 ### VPC Module
 
-| Output                    | Description                     |
-| ------------------------- | ------------------------------- |
-| `vpc_id`                  | ID of the VPC created           |
-| `public_subnets`          | IDs of the public subnets       |
-| `private_subnets`         | IDs of the private subnets      |
-| `public_route_table_ids`  | IDs of the public route tables  |
-| `private_route_table_ids` | IDs of the private route tables |
+| Output                    | Description                       |
+| ------------------------- | --------------------------------- |
+| `vpc_id`                  | ID of the VPC created             |
+| `public_subnets`          | Attributes of the public subnets  |
+| `private_subnets`         | Attributes of the private subnets |
+| `public_route_table_ids`  | IDs of the public route tables    |
+| `private_route_table_ids` | IDs of the private route tables   |
 
 ### EC2 Module
 
