@@ -7,7 +7,7 @@ variable "project_name" {
 variable "profile_name" {
   type        = string
   description = "AWS Profile to be used to create/access resources"
-  default     = "prod-customer"
+  default     = "default"
 }
 
 variable "env" {
@@ -46,17 +46,6 @@ variable "private_subnet_suffixes" {
   default     = ["4.0/24", "5.0/24", "6.0/24"]
 }
 
-variable "extra_tags" {
-  type        = map(string)
-  description = "Extra tags to be used for created resources"
-  default = {
-    Application = "Customer"
-    Environment = "Prod"
-    Owner       = "Devops Admin"
-    Install     = "Terraform"
-  }
-}
-
 variable "instance_name" {
   description = "Value of the Name tag for the EC2 instance"
   type        = string
@@ -73,6 +62,17 @@ variable "ami_id" {
   description = "Value of AMI ID for the EC2 instance"
   type        = string
   default     = "ami-0bfddf4206f1fa7b9"
+}
+
+variable "extra_tags" {
+  type        = map(string)
+  description = "Extra tags to be used for created resources"
+  default = {
+    Application = "Customer"
+    Environment = "Prod"
+    Owner       = "Devops Admin"
+    Install     = "Terraform"
+  }
 }
 
 variable "aws_sns_topic_subscription_email" {
