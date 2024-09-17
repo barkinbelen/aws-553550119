@@ -9,9 +9,14 @@ The repository is structured with two main modules:
 - VPC Module: This module provisions the required VPC resources, such as subnets, internet gateways, and NAT gateways.
 - ASG Module: This module handles the creation of an Auto Scaling Group (ASG), CloudWatch Logs and Alarms, IAM roles, Security Groups, and an optional Application Load Balancer (ALB).
 
+# Architecture
+
+![Alt text](architecture.png)
+
 # How to Use
 
 1. Configure AWS CLI
+   
    - Ensure that the AWS CLI is installed and configured with the appropriate credentials and region. You can configure it by running the following command and providing your AWS access key, secret key, and default region:
 
 ```
@@ -24,6 +29,7 @@ aws configure
    - If using a non-default AWS profile, update the backend.tf and variables.tf configuration to reflect the correct profile.
 
 3. Initialize Terraform
+   
    - Before deploying resources, initialize the Terraform working directory:
 
 ```
@@ -31,6 +37,7 @@ terraform init
 ```
 
 4. Customize Variables
+   
    - Update the variables.tf file or provide a terraform.tfvars file with values that fit your environment. Key variables to customize:
 
 Run the following commands to create the infrastructure:
@@ -41,6 +48,7 @@ terraform apply
 ```
 
 5. Destroy the Infrastructure
+   
    - When you no longer need the infrastructure, you can destroy it using:
 
 ```
