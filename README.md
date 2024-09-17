@@ -11,11 +11,19 @@ The repository is structured with two main modules:
 
 # How to Use
 
-1. Configure AWS Backend
+1. Configure AWS CLI
+   - Ensure that the AWS CLI is installed and configured with the appropriate credentials and region. You can configure it by running the following command and providing your AWS access key, secret key, and default region:
+
+```
+aws configure
+```
+
+2. Configure AWS Backend
 
    - Ensure that the backend.tf file is properly configured to store the Terraform state in the specified S3 bucket and DynamoDB table.
+   - If using a non-default AWS profile, update the backend.tf and variables.tf configuration to reflect the correct profile.
 
-2. Initialize Terraform
+3. Initialize Terraform
    - Before deploying resources, initialize the Terraform working directory:
 
 ```
@@ -33,7 +41,7 @@ terraform apply
 ```
 
 5. Destroy the Infrastructure
-   When you no longer need the infrastructure, you can destroy it using:
+   - When you no longer need the infrastructure, you can destroy it using:
 
 ```
 terraform destroy
@@ -95,6 +103,7 @@ An S3 bucket is created to store web content. By default, the index.html file is
 | Variable                           | Description                                                                                                            | Example                               |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | `project_name`                     | Project name for tagging resources                                                                                     | `Customer`                            |
+| `profile_name`                     | AWS Profile to be used to create/access resources                                                                      | `default`                             |
 | `env`                              | Environment name (Prod, Dev, etc.)                                                                                     | `Prod`                                |
 | `region`                           | AWS Region to deploy the resources                                                                                     | `us-west-2`                           |
 | `cidr_block`                       | CIDR range of the VPC                                                                                                  | `10.0.0.0/16`                         |
