@@ -38,7 +38,7 @@ terraform init
 
 4. Customize Variables
    
-   - Update the variables.tf file or provide a terraform.tfvars file with values that fit your environment. Key variables to customize:
+   - Update the variables.tf file or provide a terraform.tfvars file with values that fit your environment.
 
 Run the following commands to create the infrastructure:
 
