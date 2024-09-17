@@ -1,8 +1,12 @@
+Initial improvements:
+- To enhance availability and security, the create_load_balancer flag was added to migrate application servers from public subnets to private subnets.
+- The application Security Group was updated to only allow traffic from the Load Balancer Security Group on port 80.
+- Utilizing multiple availability zones has further improved the overall availability of the system
+
 Depending on the website’s architecture and requirements (e.g., programming languages, server-side rendering, and backend needs), different cloud solutions can be applied:
 - S3 Website Hosting with CloudFront: If the website is static (HTML, CSS, JS), it can be hosted on S3, with CloudFront as a CDN for faster global delivery.
 - ECS with EC2 Alternatives: Instead of using an ASG with EC2 instances, ECS (Elastic Container Service) can offer better pricing and scalability for containerized applications, improving availability and reducing costs.
 - Lambda for Low-Traffic Backend: For backend services with low traffic, AWS Lambda can be used to handle requests on demand.
-
 
 
 

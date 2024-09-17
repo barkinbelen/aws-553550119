@@ -1,6 +1,6 @@
 # Terraform AWS Infrastructure Setup
 
-This repository contains Terraform code to deploy infrastructure on AWS, including a VPC, Auto Scaling Group (ASG), CloudWatch Alarms, SNS Topic, and an S3 bucket for web content hosting via Nginx.
+This repository contains Terraform code for deploying AWS infrastructure, including a VPC, Auto Scaling Group (ASG), CloudWatch Alarms, an SNS Topic, and an S3 bucket for hosting web content via Nginx within the ASG.
 
 # Repository Structure
 
@@ -92,22 +92,22 @@ An S3 bucket is created to store web content. By default, the index.html file is
 
 ## Variables
 
-| Variable                           | Description                                                                   | Example                               |
-| ---------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------- |
-| `project_name`                     | Project name for tagging resources                                            | `Customer`                            |
-| `env`                              | Environment name (Prod, Dev, etc.)                                            | `Prod`                                |
-| `region`                           | AWS Region to deploy the resources                                            | `us-west-2`                           |
-| `cidr_block`                       | CIDR range of the VPC                                                         | `10.0.0.0/16`                         |
-| `subnet_count`                     | Number of public and private subnets                                          | `2`                                   |
-| `public_subnet_suffixes`           | CIDR suffixes for public subnets                                              | `["1.0/24", "2.0/24"]`                |
-| `private_subnet_suffixes`          | CIDR suffixes for private subnets                                             | `["4.0/24", "5.0/24"]`                |
-| `instance_name`                    | Name tag for the EC2 instances                                                | `Web-Server`                          |
-| `instance_type`                    | EC2 instance type                                                             | `t2.micro`                            |
-| `ami_id`                           | AMI ID for the EC2 instances                                                  | `ami-0bfddf4206f1fa7b9`               |
-| `extra_tags`                       | Additional tags for resources                                                 | See `variables.tf`                    |
-| `aws_sns_topic_subscription_email` | Email address of the AWS SNS topic subscription                               | `devops-admin@example.com`            |
-| `web_content_bucket_name`          | Name of the S3 bucket where web content is stored                             | `customer-prod-web-content-553550119` |
-| `create_load_balancer`             | Boolean to determine if load balancer and related resources should be created | `true`                                |
+| Variable                           | Description                                                                                                            | Example                               |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `project_name`                     | Project name for tagging resources                                                                                     | `Customer`                            |
+| `env`                              | Environment name (Prod, Dev, etc.)                                                                                     | `Prod`                                |
+| `region`                           | AWS Region to deploy the resources                                                                                     | `us-west-2`                           |
+| `cidr_block`                       | CIDR range of the VPC                                                                                                  | `10.0.0.0/16`                         |
+| `subnet_count`                     | Number of public and private subnets (if create_load_balancer flag is set to true, minimum accepted subnet count is 2) | `2`                                   |
+| `public_subnet_suffixes`           | CIDR suffixes for public subnets                                                                                       | `["1.0/24", "2.0/24"]`                |
+| `private_subnet_suffixes`          | CIDR suffixes for private subnets                                                                                      | `["3.0/24", "4.0/24"]`                |
+| `instance_name`                    | Name tag for the EC2 instances                                                                                         | `Web-Server`                          |
+| `instance_type`                    | EC2 instance type                                                                                                      | `t2.micro`                            |
+| `ami_id`                           | AMI ID for the EC2 instances                                                                                           | `ami-0bfddf4206f1fa7b9`               |
+| `extra_tags`                       | Additional tags for resources                                                                                          | See `variables.tf`                    |
+| `aws_sns_topic_subscription_email` | Email address of the AWS SNS topic subscription                                                                        | `devops-admin@example.com`            |
+| `web_content_bucket_name`          | Name of the S3 bucket where web content is stored                                                                      | `customer-prod-web-content-553550119` |
+| `create_load_balancer`             | Boolean to determine if load balancer and related resources should be created                                          | `true`                                |
 
 ## Module Outputs
 
